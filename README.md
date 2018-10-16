@@ -12,5 +12,3 @@ E-Mail is needed because last time I did not know that my power supply died and 
 Log output example:
 
     Tue Oct 16 10:01:03 CEST 2018 - Ok. Battery Full - 100% left. AC is online with current 0.222 A. Battery health is Good.
-
-[Click and drag to move] 
