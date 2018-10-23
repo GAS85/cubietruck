@@ -63,7 +63,7 @@ if [ -d "$SAMBA" ]; then
 
 		cd $SAMBA
 
-		find $SAMBA/free_*$TAIL -exec rm {} \;
+		find $SAMBA/free_*$TAIL -exec rm {} \; 2> /dev/null
 
 		touch free_$FREESPACE$TAIL
 
@@ -117,7 +117,7 @@ if [ -d "$SAMBA" ]; then
 		find *.torrent -mtime +$Older | fgrep -v -x -f /tmp/df_for_samba.tmp | xargs -d '\n' rm -f
 		
 		#Remove old aria2 files
-		find *.aria2 -mtime +$Older -exec rm {} \;
+		find *.aria2 -mtime +$Older -exec rm {} \;  2> /dev/null
 
 		rm /tmp/df_for_samba.tmp
 
