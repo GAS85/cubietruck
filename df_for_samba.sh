@@ -39,9 +39,16 @@ if [ "$ARIA2" = true ]; then
 	fi
 
 	#Find pattern in Aria 2 config
-	#.constant('$name', 'GAS home Aria2 WebUI. 12G free.')  // name used across the entire UI
-	#12G is number 6 here - space as delimeter.
-	ToFind=$(grep "\$name" $ARIA2WebUIConfig | awk -F' ' '{print $5}')
+
+	NameVariable=$(grep "\$name" $ARIA2WebUIConfig | cut -d "'" -f4 | cut -d "'" -f3)
+
+	Check=$(echo $NameVariable | rev | cut -c -5 | rev)
+
+	if [ "$Check" = "free." ]; then
+
+		ToFind=$(echo $NameVariable | rev | awk -F' ' '{print $2}' | rev)
+
+	fi
 
 fi
 
@@ -56,7 +63,7 @@ if [ -d "$SAMBA" ]; then
 
 		cd $SAMBA
 
-		find $SAMBA/free_*$TAIL -exec rm {} \; 2> /dev/null
+		find $SAMBA/free_*$TAIL -exec rm {} \;
 
 		touch free_$FREESPACE$TAIL
 
@@ -65,8 +72,15 @@ if [ -d "$SAMBA" ]; then
 	#Adjust Aria2 WebUI
 	if [ "$ARIA2" = true ]; then
 
-		sed -i -e "s/$ToFind/$FREESPACE/g" $ARIA2WebUIConfig
+		if [ "$Check" = "free." ]; then
 
+			sed -i -e "s/$ToFind/$FREESPACE/g" $ARIA2WebUIConfig
+
+		else
+
+			sed -i -e "s/$NameVariable/$NameVariable. $FREESPACE free./g" $ARIA2WebUIConfig
+
+		fi
 	fi
 
 	#Files Cleanup
@@ -99,19 +113,11 @@ if [ -d "$SAMBA" ]; then
 		#Create exception list
 		grep .torrent $(grep save-session= $ARIA2Config | grep -v "#" | cut -c 14-) | rev | cut -c -48 | rev > /tmp/df_for_samba.tmp
 		
-		#Remove old torrent files except active downloads if any
-		if [ -s /tmp/df_for_samba.tmp ]; then
-
-			find *.torrent -mtime +$Older | fgrep -v -x -f /tmp/df_for_samba.tmp | xargs -d '\n' rm -f
-
-		else
-
-			find *.torrent -mtime +$Older -exec rm {} \; 2> /dev/null
-
-		fi
-
+		#Remove old torrent files except active downloads
+		find *.torrent -mtime +$Older | fgrep -v -x -f /tmp/df_for_samba.tmp | xargs -d '\n' rm -f
+		
 		#Remove old aria2 files
-		find *.aria2 -mtime +$Older -exec rm {} \; 2> /dev/null
+		find *.aria2 -mtime +$Older -exec rm {} \;
 
 		rm /tmp/df_for_samba.tmp
 
@@ -122,7 +128,15 @@ else
 
 	if [ "$ARIA2" = true ]; then
 
-		sed -i -e "s/$ToFind/NOT_Mounted!/g" $ARIA2WebUIConfig
+		if [ "$Check" = "free." ]; then
+
+			sed -i -e "s/$ToFind/$FREESPACE/g" $ARIA2WebUIConfig
+
+		else
+
+			sed -i -e "s/$NameVariable/$NameVariable. $FREESPACE free./g" $ARIA2WebUIConfig
+
+		fi
 
 	fi
 
