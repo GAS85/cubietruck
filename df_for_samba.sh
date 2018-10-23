@@ -41,7 +41,7 @@ if [ "$ARIA2" = true ]; then
 	#Find pattern in Aria 2 config
 	#.constant('$name', 'GAS home Aria2 WebUI. 12G free.')  // name used across the entire UI
 	#12G is number 6 here - space as delimeter.
-	ToFind=$(cat $ARIA2WebUIConfig | head -n 3 | tail -n 1 | awk -F' ' '{print $6}')
+	ToFind=$(grep "\$name" $ARIA2WebUIConfig | awk -F' ' '{print $6}')
 
 fi
 
