@@ -41,7 +41,7 @@ if [ "$ARIA2" = true ]; then
 	#Find pattern in Aria 2 config
 	#.constant('$name', 'GAS home Aria2 WebUI. 12G free.')  // name used across the entire UI
 	#12G is number 6 here - space as delimeter.
-	ToFind=$(grep "\$name" $ARIA2WebUIConfig | awk -F' ' '{print $6}')
+	ToFind=$(grep "\$name" $ARIA2WebUIConfig | awk -F' ' '{print $5}')
 
 fi
 
@@ -56,7 +56,7 @@ if [ -d "$SAMBA" ]; then
 
 		cd $SAMBA
 
-		find $SAMBA/free_*$TAIL -exec rm {} \;
+		find $SAMBA/free_*$TAIL -exec rm {} \; 2> /dev/null
 
 		touch free_$FREESPACE$TAIL
 
@@ -97,13 +97,21 @@ if [ -d "$SAMBA" ]; then
 		fi
 
 		#Create exception list
-		grep .torrent $(grep save-session= /etc/aria2.conf | grep -v "#" | cut -c 14-) | rev | cut -c -48 | rev > /tmp/df_for_samba.tmp
+		grep .torrent $(grep save-session= $ARIA2Config | grep -v "#" | cut -c 14-) | rev | cut -c -48 | rev > /tmp/df_for_samba.tmp
 		
-		#Remove old torrent files except active downloads
-		find *.torrent -mtime +$Older | fgrep -v -x -f /tmp/df_for_samba.tmp | xargs -d '\n' rm -f
-		
+		#Remove old torrent files except active downloads if any
+		if [ -s /tmp/df_for_samba.tmp ]; then
+
+			find *.torrent -mtime +$Older | fgrep -v -x -f /tmp/df_for_samba.tmp | xargs -d '\n' rm -f
+
+		else
+
+			find *.torrent -mtime +$Older -exec rm {} \; 2> /dev/null
+
+		fi
+
 		#Remove old aria2 files
-		find *.aria2 -mtime +$Older -exec rm {} \;
+		find *.aria2 -mtime +$Older -exec rm {} \; 2> /dev/null
 
 		rm /tmp/df_for_samba.tmp
 
