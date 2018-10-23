@@ -4,7 +4,7 @@
 # AS-IS without any warranty
 
 #Your share folder
-SAMBA=/home/gas/samba/share/usb/Video
+SAMBA=/home/USER/share/Video
 
 #Aria2 WEB Config
 ARIA2WebUIConfig=/var/www/webui-aria2-master/configuration.js
@@ -23,7 +23,9 @@ CLEAN=true
 #How old files should be before clean up in days?
 Older=20
 
-### DO NOT TOUCH AFTER THIS LINE
+#
+### DO NOT TOUCH AFTER THIS LINE ###
+#
 
 #Check if ARIA2 config is presented
 if [ "$ARIA2" = true ]; then
