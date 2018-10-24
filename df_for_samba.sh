@@ -3,43 +3,48 @@
 # By Georgiy Sitnikov.
 # AS-IS without any warranty
 
+### Configuration start ###
+
 #Your share folder
 SAMBA=/home/USER/share/Video
 
-#Aria2 WEB Config
-ARIA2WebUIConfig=/var/www/webui-aria2-master/configuration.js
-
-#Aria2 Configuration file
-ARIA2Config=/etc/aria2.conf
-
 #Do you want to adjust ARIA2 WebUI true or false
 ARIA2=true
+	#If you set true - please set parameters below:
+
+	#Aria2 WEB Config
+	ARIA2WebUIConfig=/var/www/webui-aria2-master/configuration.js
+	#Aria2 Configuration file
+	ARIA2Config=/etc/aria2.conf
 
 #Do you want to create information file with name "free_XXXGB_SALT.md" in your share
 FILE=true
 
 #Do you want to do Aria 2 old files clean up?
 CLEAN=true
-#How old files should be before clean up in days?
-Older=20
+	#How old files should be before clean up in days? Default 20 = delete older 20 Days.
+	Older=20
 
-#
+### Configuration end ###
+
+####################################
 ### DO NOT TOUCH AFTER THIS LINE ###
-#
+####################################
 
 #Check if ARIA2 config is presented
 if [ "$ARIA2" = true ]; then
 
 	if [ ! -f "$ARIA2WebUIConfig" ]; then
 
-		echo "ERROR - Aria 2 WEB Config file was not found"
+		echo "ERROR - Aria 2 WEB Config file was not found under $ARIA2WebUIConfig"
 
 		exit 1
 
 	fi
 
 	#Find pattern in Aria 2 config
-
+	#.constant('$name', 'GAS home Aria2 WebUI. XXG free.')  // name used across the entire UI
+	#XXG is number 6 here - space as delimeter.
 	NameVariable=$(grep "\$name" $ARIA2WebUIConfig | cut -d "'" -f4 | cut -d "'" -f3)
 
 	Check=$(echo $NameVariable | rev | cut -c -5 | rev)
@@ -86,14 +91,14 @@ if [ -d "$SAMBA" ]; then
 	#Files Cleanup
 	if [ "$CLEAN" = true ]; then
 
-	#Check if config presented
-	if [ ! -f "$ARIA2Config" ]; then
+		#Check if config presented
+		if [ ! -f "$ARIA2Config" ]; then
 
-		echo "ERROR - Aria 2 Config file was not found"
+			echo "ERROR - Aria 2 Config file was not found und $ARIA2Config"
 
-		exit 1
+			exit 1
 
-	fi
+		fi
 
 		cd $SAMBA
 
@@ -111,7 +116,7 @@ if [ -d "$SAMBA" ]; then
 		fi
 
 		#Create exception list
-		grep .torrent $(grep save-session= $ARIA2Config | grep -v "#" | cut -c 14-) | rev | cut -c -48 | rev > /tmp/df_for_samba.tmp
+		grep .torrent $(grep save-session= /etc/aria2.conf | grep -v "#" | cut -c 14-) | rev | cut -c -48 | rev > /tmp/df_for_samba.tmp
 		
 		#Remove old torrent files except active downloads
 		find *.torrent -mtime +$Older | fgrep -v -x -f /tmp/df_for_samba.tmp | xargs -d '\n' rm -f
