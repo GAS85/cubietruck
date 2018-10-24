@@ -39,7 +39,7 @@ green=$LEDs/green:ph07:led4
 ####################################
 
 #Check if folder exist
-if [ -d "$SAMBA" ]; then
+if [ -d "$LEDs" ]; then
 
 	echo "ERROR - LED Folder not found under $LEDs"
 
