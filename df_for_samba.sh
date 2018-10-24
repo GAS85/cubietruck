@@ -94,7 +94,7 @@ if [ -d "$SAMBA" ]; then
 		#Check if config presented
 		if [ ! -f "$ARIA2Config" ]; then
 
-			echo "ERROR - Aria 2 Config file was not found und $ARIA2Config"
+			echo "ERROR - Aria 2 Config file was not found under $ARIA2Config"
 
 			exit 1
 
