@@ -16,7 +16,7 @@ BrightnessOff=0
 #set trigger
 #possible triggers: 
 #none battery-charging-or-full battery-charging battery-full battery-charging-blink-full-solid ac-online usb-online mmc0 mmc1 timer disk-activity heartbeat backlight cpu0 cpu1 default-on rfkill0 rfkill1 rfkill2 rfkill4 
-#Just delete value of trigger and it will not be touched (e.g. as green)
+#Just delete the value of trigger and it will not be touched (e.g. as green)
 	#for blue LED
 	triggerB=disk-activity
 	#for orange LED
@@ -60,25 +60,30 @@ fi
 #none battery-charging-or-full battery-charging battery-full battery-charging-blink-full-solid ac-online usb-online mmc0 mmc1 timer disk-activity heartbeat backlight cpu0 cpu1 default-on rfkill0 rfkill1 rfkill2 rfkill4 
 #echo TRIGGER > $blue/trigger
 
-echo $triggerB > $blau/trigger
-echo $triggerO > $orange/trigger
-echo $triggerW > $white/trigger
-echo $triggerG > $green/trigger
+if [ -z "$triggerB" ]; echo $triggerB > $blau/trigger
+if [ -z "$triggerO" ]; echo $triggerO > $orange/trigger
+if [ -z "$triggerW" ]; echo $triggerW > $white/trigger
+if [ -z "$triggerG" ]; echo $triggerG > $green/trigger
 
 #set brightness
 ##if Argument "off" to set low brightness, e.g. for night
 
 if [[ $1 == "off" ]]
-  then
-	echo $BrightnessOff > $blau/brightness
-	echo $BrightnessOff > $orange/brightness
-	echo $BrightnessOff > $white/brightness
-	echo $BrightnessOff > $green/brightness
-  else
-	echo $BrightnessOn > $blau/brightness
-	echo $BrightnessOn > $orange/brightness
-	echo $BrightnessOn > $white/brightness
-	echo $BrightnessOn > $green/brightness
-fi
+
+	then
+
+		if [ -z "$triggerB" ]; echo $BrightnessOff > $blau/brightness
+		if [ -z "$triggerO" ]; echo $BrightnessOff > $orange/brightness
+		if [ -z "$triggerW" ]; echo $BrightnessOff > $white/brightness
+		if [ -z "$triggerG" ]; echo $BrightnessOff > $green/brightness
+
+	else
+
+		if [ -z "$triggerB" ]; echo $BrightnessOn > $blau/brightness
+		if [ -z "$triggerO" ]; echo $BrightnessOn > $orange/brightness
+		if [ -z "$triggerW" ]; echo $BrightnessOn > $white/brightness
+		if [ -z "$triggerG" ]; echo $BrightnessOn > $green/brightness
+
+	fi
 
 exit 0
