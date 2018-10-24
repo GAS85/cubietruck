@@ -8,7 +8,7 @@
 #path to your LEDs
 LEDs=/sys/class/leds/
 
-#Brightness for "day"
+#Brightness for "day". Maximum is 255 - not recomended.
 BrightnessOn=50
 #Brightness for "night"
 BrightnessOff=0
