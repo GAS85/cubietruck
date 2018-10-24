@@ -20,3 +20,9 @@ Delete old aria2 and inactive torrent files.
 
 Example of Aria2 WebUI modification after this Script:
 ![image](https://user-images.githubusercontent.com/6813635/47412465-23b05a80-d76c-11e8-86c7-4da2987cb923.png)
+
+# led.sh
+
+Control your Cubietruck LEDs on Ubuntu 16.04 (Armbian). Has 2 parameters for "night" and "day". For Day just run it and for night modus run it with parameter "off"
+
+    led.sh off
