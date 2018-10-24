@@ -63,17 +63,17 @@ fi
 echo $triggerB > $blau/trigger
 echo $triggerO > $orange/trigger
 echo $triggerW > $white/trigger
-echo triggerG > $green/trigger
+echo $triggerG > $green/trigger
 
 #set brightness
 ##if Argument "off" to set low brightness, e.g. for night
 
 if [[ $1 == "off" ]]
   then
-	echo BrightnessOff > $blau/brightness
-	echo BrightnessOff > $orange/brightness
-	echo BrightnessOff > $white/brightness
-	echo BrightnessOff > $green/brightness
+	echo $BrightnessOff > $blau/brightness
+	echo $BrightnessOff > $orange/brightness
+	echo $BrightnessOff > $white/brightness
+	echo $BrightnessOff > $green/brightness
   else
 	echo $BrightnessOn > $blau/brightness
 	echo $BrightnessOn > $orange/brightness
