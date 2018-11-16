@@ -66,7 +66,7 @@ cat /sys/class/power_supply/ac/uevent >> $LOCKFILE
 echo "<br>" >> $LOCKFILE
 cat /sys/class/power_supply/battery/uevent >> $LOCKFILE
 
-echo "$(date) - Send warning E-Mail" >> $LOGFIL
+echo "$(date) - Send warning E-Mail" >> $LOGFILE
 cat $LOCKFILE | /usr/sbin/sendmail $recipients
 
 #echo Starting periodical check
