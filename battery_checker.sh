@@ -14,80 +14,82 @@ LOGFILE=/var/log/battery_checker.log
 
 LOCKFILE=/tmp/battery_checker
 
-# Check if Log file exist
+# Check if you are root user, otherwise shutdown will not work
+[ $(id -u) -eq 0 ] || { echo >&2 "Must be root to run this script."; exit 1; }
+# # Check if Log file exist
 [ -e $LOGFILE ] || { echo >&2 "Log File ($LOGFILE) does't exist."; exit 1; }
 # Check if Log file is writtable by Process
 [ -w $LOGFILE ] || { echo >&2 "Log File ($LOGFILE) is not writable by process."; exit 1; }
-# Check if you are root user, otherwise shutdown will not work
-[ $(id -u) -eq 0 ] || { echo >&2 "Must be root to run script"; exit 1; }
 # Check if sendmail exist
 [ -e /usr/sbin/sendmail ] || echo >&2 "Sendmail does't installed, will not be able to send E-Mails."
 
-batt_capacity="$(cat /sys/class/power_supply/battery/capacity)"
-batt_p="$(cat /sys/class/power_supply/battery/present)"
-ac_p="$(cat /sys/class/power_supply/ac/online)"
+batt_capacity="/sys/class/power_supply/battery/capacity"
+batt_p="/sys/class/power_supply/battery/present"
+batt_status="/sys/class/power_supply/battery/status"
+batt_health="/sys/class/power_supply/battery/health"
+ac_p="/sys/class/power_supply/ac/online"
 ac_cur="$(printf "%0.3f\n" "$(echo "$(cat /sys/class/power_supply/ac/current_now)" / 1000000 | bc -l)")" #Current in A
 
-#echo "$(date) - Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left." >> $LOGFILE
-
 # check if Battery presented otherwise it is useless:)
-[ "$batt_p" == "0" ] && echo "$(date) - Abort. Battery not presented." >> $LOGFILE && exit 0
-# check if AC is online
-[ "$ac_p" == "1" ] && echo "$(date) - Ok. Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left. AC is online with current $ac_cur A. Battery health is $(cat /sys/class/power_supply/battery/health)." >> $LOGFILE && exit 0 ##Commented exit 0 because if AC faulty - it will not charge, but scipt exiting
-# check if Battery dischared to 80%
-[ "$batt_capacity" -ge "$warning_level" ] && echo "$(date) - Warning. Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left. AC is $([ "$ac_p" == "1" ] && echo "online" || echo "offline") with current $ac_cur A. Battery health is $(cat /sys/class/power_supply/battery/health)." >> $LOGFILE && exit 0
+[ "$(cat $batt_p)" == "0" ] && echo "$(date) - Abort. Battery not presented." >> $LOGFILE && exit 0
 
 # Check lock file
-#[ -f "$LOCKFILE" ] && exit
 if [ -f "$LOCKFILE" ]; then
         # Remove lock file if script fails last time and did not run more then 2 days due to lock file.
-        #find "$LOCKFILE" -mtime +2 -type f -delete && echo "$(date) - Error. Lock file older than 2 days was deleted." >> $LOGFILE && exit 1
         find "$LOCKFILE" -mtime +2 -type f -delete && { echo >&2 "$(date) - Error. Lock file presented. Other instance?" >> $LOGFILE; exit 1; }
         exit 0
 fi
 
 touch $LOCKFILE
 
-echo "$(date) - Warning. Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left. AC is offline. Battery health is $(cat /sys/class/power_supply/battery/health). Start watching." >> $LOGFILE
+# check if Battery dischared to 80%
+if [ "$(cat $batt_capacity)" -gt "$warning_level" ]; then
+	if [ "$(cat $ac_p)" == "1" ]; then
+		echo "$(date) - Ok. Battery $(cat $batt_status) - $(cat $batt_capacity)% left.  AC is $([ "$(cat $ac_p)" == "1" ] && echo "online" || echo "offline") with current $$ac_cur A. Battery health is $(cat $batt_health)." >> $LOGFILE
+		rm $LOCKFILE
+		exit 0
+	fi
+	echo "$(date) - Warning. Battery $(cat $batt_status) - $(cat $batt_capacity)% left. AC is $([ "$(cat $ac_p)" == "1" ] && echo "online" || echo "offline") with current $$ac_cur A. Battery health is $(cat $batt_health) Start watching." >> $LOGFILE
+fi
 
 # Here we could send warning message
-echo "To: $recipients" > $LOCKFILE
-echo "FROM: $from" >> $LOCKFILE
-echo "Subject: $subject" >> $LOCKFILE
-echo "MIME-Version: 1.0" >> $LOCKFILE
-echo 'Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"' >> $LOCKFILE
-echo >> $LOCKFILE
-echo '---q1w2e3r4t5' >> $LOCKFILE
-echo "Content-Type: text/html" >> $LOCKFILE
-echo "Content-Disposition: inline" >> $LOCKFILE
-echo "" >> $LOCKFILE
-echo "Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left.<br>Battery health is $(cat /sys/class/power_supply/battery/health).<br>Will shutdown at $critical_level%.<br>$(date)<br>Internal IP: $(ip route get 8.8.8.8 | awk '{print $NF; exit}')<br>Hostname: $(hostname)<br><br>" >> $LOCKFILE
-cat /sys/class/power_supply/ac/uevent >> $LOCKFILE
-echo "<br>" >> $LOCKFILE
-cat /sys/class/power_supply/battery/uevent >> $LOCKFILE
+echo 'To: '$recipients'
+FROM: '$from'
+Subject: '$subject'. Start watching.
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
+
+---q1w2e3r4t5
+Content-Type: text/html
+Content-Disposition: inline
+
+Battery '$(cat $batt_status)' - '$(cat $batt_capacity)'% left, health is '$(cat $batt_health)'.<br>
+Will shutdown at '$critical_level'%.<br><br>
+'$(date)'<br><br>
+Internal IP: '$(ip route get 8.8.8.8 | awk '{print $NF; exit}')'<br>
+Hostname: '$(hostname)'<br><br>
+'$(cat /sys/class/power_supply/ac/uevent)'<br><br>
+'$(cat /sys/class/power_supply/battery/uevent)'' > $LOCKFILE
 
 echo "$(date) - Send warning E-Mail" >> $LOGFILE
+
 cat $LOCKFILE | /usr/sbin/sendmail $recipients
 
 #echo Starting periodical check
 for (( ; ; ))
 do
-	batt_capacity="$(cat /sys/class/power_supply/battery/capacity)"
-	ac_p="$(cat /sys/class/power_supply/ac/online)"
-
 	#if battery charged again - exit
-	if [ $batt_capacity -gt $warning_level ]; then
-	    	if [ "$ac_p" == "1" ]; then
-        		echo "$(date) - Ok. Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left.  AC is $([ "$ac_p" == "1" ] && echo "online" || echo "offline") with current $ac_cur A. Battery health is $(cat /sys/class/power_supply/battery/health). Exiting." >> $LOGFIL
-			#echo "$(date) - Ok. Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left. Exiting." >> $LOGFILE
+	if [ "$(cat $batt_capacity)" -gt "$warning_level" ]; then
+		if [ "$(cat $ac_p)" == "1" ]; then
+			echo "$(date) - Ok. Battery $(cat $batt_status) - $(cat $batt_capacity)% left.  AC is $([ "$(cat $ac_p)" == "1" ] && echo "online" || echo "offline") with current $(printf "%0.3f\n" "$(echo "$(cat /sys/class/power_supply/ac/current_now)" / 1000000 | bc -l)") A. Battery health is $(cat $batt_health). Exiting." >> $LOGFILE
 			rm $LOCKFILE
 			exit 0
 		fi
-		echo "$(date) - Warning. Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left. AC is $([ "$ac_p" == "1" ] && echo "online" || echo "offline") with current $ac_cur A. Battery health is $(cat /sys/class/power_supply/battery/health) Watching." >> $LOGFIL
+		echo "$(date) - Warning. Battery $(cat $batt_status) - $(cat $batt_capacity)% left. AC is $([ "$(cat $ac_p)" == "1" ] && echo "online" || echo "offline") with current $(printf "%0.3f\n" "$(echo "$(cat /sys/class/power_supply/ac/current_now)" / 1000000 | bc -l)") A. Battery health is $(cat $batt_health) Watching." >> $LOGFIL
 	fi
 
 	#if battery critical discharded - turn server Off
-	if [ $batt_capacity -le $critical_level ]; then break
+	if [ "$(cat $batt_capacity)" -le "$critical_level" ]; then break
 	fi
 
 	#pause pefore next periodical check
@@ -97,23 +99,27 @@ done
 
 #echo Here we could send warning message
 #Email Header
-echo "To: $recipients" > $LOCKFILE
-echo "FROM: $from" >> $LOCKFILE
-echo "Subject: $subject. Shutdown now." >> $LOCKFILE
-echo "MIME-Version: 1.0" >> $LOCKFILE
-echo 'Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"' >> $LOCKFILE
-echo >> $LOCKFILE
-echo '---q1w2e3r4t5' >> $LOCKFILE
-echo "Content-Type: text/html" >> $LOCKFILE
-echo "Content-Disposition: inline" >> $LOCKFILE
-echo "" >> $LOCKFILE
-echo "Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left.<br>Critical level ($critical_level%) reached - shutdown now.<br>Battery health is $(cat /sys/class/power_supply/battery/health).<br>$(date)<br>Internal IP: $(ip route get 8.8.8.8 | awk '{print $NF; exit}')<br>Hostname: $(hostname)<br><br>" >> $LOCKFILE
-cat /sys/class/power_supply/ac/uevent >> $LOCKFILE
-echo "<br>" >> $LOCKFILE
-cat /sys/class/power_supply/battery/uevent >> $LOCKFILE
+echo 'To: '$recipients'
+FROM: '$from'
+Subject: '$subject'. Shutdown now.
+MIME-Version: 1.0"
+Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
+
+---q1w2e3r4t5
+Content-Type: text/html
+Content-Disposition: inline
+
+Battery '$(cat $batt_status)' - '$(cat $batt_capacity)'% left.<br>
+Critical level ('$critical_level'%) reached - shutdown now.<br>
+Battery health is '$(cat $batt_health)'.<br><br>
+'$(date)'<br><br>
+Internal IP: '$(ip route get 8.8.8.8 | awk '{print $NF; exit}')'<br>
+Hostname: '$(hostname)'<br><br>
+'$(cat /sys/class/power_supply/ac/uevent)'<br><br>
+'$(cat /sys/class/power_supply/battery/uevent)'' > $LOCKFILE
 
 # Write to log
-echo "$(date) - Warning. Battery $(cat /sys/class/power_supply/battery/status) - $batt_capacity% left. Critical level ($critical_level%) reached - shutdown now.  AC is $([ "$ac_p" == "1" ] && echo "online" || echo "offline") with current $ac_cur A. Battery health is $(cat /sys/class/power_supply/battery/health)." >> $LOGFILE
+echo "$(date) - Warning. Battery $(cat $batt_status) - $(cat $batt_capacity)% left. Critical level ($critical_level%) reached - shutdown now.  AC is $([ "$(cat $ac_p)" == "1" ] && echo "online" || echo "offline") with current $(printf "%0.3f\n" "$(echo "$(cat /sys/class/power_supply/ac/current_now)" / 1000000 | bc -l)") A. Battery health is $(cat $batt_health)." >> $LOGFILE
 
 # Send Email
 cat $LOCKFILE | /usr/sbin/sendmail $recipients
