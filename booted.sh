@@ -40,6 +40,7 @@ Disk information: '$(df -h)'<br><br>
 
 cat $LOCK_FILE | /usr/sbin/sendmail $RECIPIENTS
 
+
 rm $LOCK_FILE
 
 exit 0
