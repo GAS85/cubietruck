@@ -35,6 +35,8 @@ Hostname: '$(hostname)'<br>
 Internal IP: '$(ip route get 8.8.8.8 | awk '{print $NF; exit}')'<br>
 External IP: '$(curl -s ipinfo.io/ip)'<br><br>
 Disk information: '$(df -h)'<br><br>
+Startup Log:<br><br>
+'$(journalctl -b0 --system _COMM=systemd --no-pager)'<br><br>
 '$(cat /sys/class/power_supply/ac/uevent)'<br><br>
 '$(cat /sys/class/power_supply/battery/uevent)'' > $LOCK_FILE
 
