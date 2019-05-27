@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # By Georgiy Sitnikov.
-# Will create DokuWiki page with all blocked IPs with check against
-# ipgeolocation and abuseipdb
 # AS-IS without any warranty
 
 fail2banLogFile=/var/log/fail2ban.log
@@ -12,11 +10,11 @@ statisticFile=/tmp/fail2ban_all_IP_top.log
 resultsFile_day=/tmp/fail2ban_all_IP_day.log
 resultsFile_all=/var/log/fail2ban_all_IP_all.log
 
-dokuwiki=/var/www/dokuwiki/data/pages/gas/fail2ban
-dokuwikiReportFile=/var/www/dokuwiki/data/pages/gas/fail2ban/blockedips.txt
+dokuwiki=/var/www/dokuwiki/data/pages/fail2ban
+dokuwikiReportFile=/var/www/dokuwiki/data/pages/fail2ban/blockedips.txt
 
-geoApiKey=sfsfdsfdsdf
-abuseIpDbApiKey=sdsfsf3332dsdfsdf
+geoApiKey=fsdsdfsdfsdfsdf
+abuseIpDbApiKey=sdsdffsdsdfsdfsdfsdf2
 abuseCategories="14,15"
 
 tmp=/tmp/fail2ban_dokuwikiIPs.tmp
@@ -44,7 +42,7 @@ reportIPs () {
 
 			if [ "$abuseComment" == "GET / HTTP/1.1" ]; then
 
-				abuseComment=""
+				abuseComment="Port scan"
 
 			fi
 
@@ -54,12 +52,13 @@ reportIPs () {
 
 		fi
 
-		curl -s --tlsv1.0 --fail 'https://api.abuseipdb.com/api/v2/report' \
-		-H 'Accept: application/json' \
-		-H 'Key: '$abuseIpDbApiKey'' \
-		--data-urlencode 'ip='"$(echo $in | awk '{print $2}')"'' \
-		--data-urlencode 'comment='"$abuseComment"'' \
-		--data 'categories='"$abuseCategories"'' > /dev/null
+		curl  -s --fail --tlsv1.0 'https://api.abuseipdb.com/api/v2/report' \
+		-H "Accept: application/json" \
+		-H "Key: $abuseIpDbApiKey" \
+		--data-urlencode "ip=$in" \
+		--data-urlencode "comment=$abuseComment" \
+		--data "categories=$abuseCategories" > /dev/null
+#		--data-urlencode 'ip='"$(echo $in | awk '{print $2}')"'' \
 
 	done < $tmp
 }
