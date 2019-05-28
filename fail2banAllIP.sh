@@ -10,8 +10,14 @@ statisticFile=/tmp/fail2ban_all_IP_top.log
 resultsFile_day=/tmp/fail2ban_all_IP_day.log
 resultsFile_all=/var/log/fail2ban_all_IP_all.log
 
-dokuwiki=/var/www/dokuwiki/data/pages/fail2ban
-dokuwikiReportFile=/var/www/dokuwiki/data/pages/fail2ban/blockedips.txt
+dokuWikiBin=/var/www/dokuwiki/bin
+
+dokuwiki=/var/www/dokuwiki/data/pages/gas/fail2ban
+dokuWikiData=$dokuWikiBin/../data
+dokuwikiReportFile=/var/www/dokuwiki/data/pages/gas/fail2ban/blockedips.txt
+
+dokuWikiNamespace="gas:fail2ban"
+dokuWikiUser=gas
 
 geoApiKey=fsdsdfsdfsdfsdf
 abuseIpDbApiKey=sdsdffsdsdfsdfsdfsdf2
@@ -33,6 +39,28 @@ else
 
 fi
 
+dokuWikiReport=$dokuWikiNamespace":BlockedIPs"
+webServerUser=$(stat -c '%U' $dokuwiki)
+webServerGroup=$(stat -c '%G' $dokuwiki)
+
+searchInLogFail2Ban () {
+	awk -F'[: ]' '$2 >= '$fromTime' && $2 <= '$tillTime' { print }' $1
+}
+
+searchInLogApache () {
+	awk -F'[:]' '$3 >= '$fromTime' && $3 <= '$tillTime' { print }'
+}
+
+
+dokuWikiCommit () {
+	# chown $webServerUser:$webServerGroup $1
+	# commitComment=(-m \"\Update\"\)
+	# sudo -u $webServerUser cat $1
+	# sudo -u $webServerUser
+	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m '"'Update'"' $1 $2
+	#exit 0
+}
+
 reportIPs () {
 	while read in; do
 
@@ -40,7 +68,7 @@ reportIPs () {
 
 			abuseComment=$(tail -n 1 $dokuwiki/$in.txt | awk -F'["]' '{print $2}')
 
-			if [ "$abuseComment" == "GET / HTTP/1.1" ]; then
+			if [ "$abuseComment" == "GET / HTTP/1.1" -o "$abuseComment" == "GET / HTTP/1.0" -o "$abuseComment" == "GET / HTTP/2.0" ]; then
 
 				abuseComment="Port scan"
 
@@ -65,14 +93,25 @@ reportIPs () {
 
 addedToDokuwiki () {
 	while read in; do
+		# [[ -e $dokuwiki/fail2bantmp.txt ]] && { rm $dokuwiki/fail2bantmp.txt; }
 
-		grep "$(echo $in) - - " $Apache2Log/*.log | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $dokuwiki/$in.txt
+		if [ -f "$dokuwiki/$in.txt" ]; then
+
+			cat $dokuwiki/$in.txt > $tmp$in
+
+		fi
+
+		grep "$(echo $in) - - " $Apache2Log/*.log | searchInLogApache | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $tmp$in
+		# grep "$(echo $in) - - " $Apache2Log/*.log | searchInLogApache | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $dokuwiki/fail2bantmp.txt
+		# dokuWikiCommit $tmp$in $dokuWikiNamespace:$in >> /dev/null
+
+		if [ $(wc -c <"$tmp$in") -ge 2 ]; then
+
+			dokuWikiCommit $tmp$in $dokuWikiNamespace:$in >> /dev/null
+
+		fi
 
 	done < $tmp
-
-	# Set corrct access rules and delete empty pages
-	find $dokuwiki/*.txt -empty -type f -delete
-	chown www-data:www-data $dokuwiki/*.txt
 }
 
 geolocation () {
@@ -114,9 +153,9 @@ createDokuWikiReport () {
 
 	echo "//It took $(expr $end - $start) seconds to generate this list. Last update on $(date +"%Y-%m-%d")//" >> $tmp.2
 
-	cat $tmp.2 > $dokuwikiReportFile
+	# Applay wiki Changes
+	dokuWikiCommit $tmp.2 $dokuWikiReport >> /dev/null
 
-	# rm $tmp
 	rm $tmp.2
 }
 
@@ -133,7 +172,8 @@ createStatisticFile () {
 }
 
 # Search in fail2Ban for banned IPs
-awk -F'[:]' '$2 >= '$fromTime' && $2 <= '$tillTime' { print }' $fail2banLogFile | grep Ban | grep -v ERROR | awk 'NF>1{print $NF}' | sort > $tmp
+searchInLogFail2Ban $fail2banLogFile | grep Ban | grep -v ERROR | awk 'NF>1{print $NF}' | sort > $tmp
+#awk -F'[: ]' '$2 >= '$fromTime' && $2 <= '$tillTime' { print }' $fail2banLogFile | grep Ban | grep -v ERROR | awk 'NF>1{print $NF}' | sort > $tmp
 
 cat $tmp >> $resultsFile_day
 
@@ -153,6 +193,8 @@ if [ "$tillTime" == "23" ]; then
 
 fi
 
-rm $tmp
+chown -R $webServerUser:$webServerGroup /var/www/dokuwiki/data/
+rm $tmp*
+#rm $dokuwiki/fail2bantmp.txt
 
 exit 0
