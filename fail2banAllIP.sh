@@ -6,15 +6,12 @@
 fail2banLogFile=/var/log/fail2ban.log
 Apache2Log=/var/log/apache2
 
-statisticFile=/tmp/fail2ban_all_IP_top.log
 resultsFile_day=/tmp/fail2ban_all_IP_day.log
 resultsFile_all=/var/log/fail2ban_all_IP_all.log
 
 dokuWikiBin=/var/www/dokuwiki/bin
-
-dokuwiki=/var/www/dokuwiki/data/pages/gas/fail2ban
 dokuWikiData=$dokuWikiBin/../data
-dokuwikiReportFile=/var/www/dokuwiki/data/pages/gas/fail2ban/blockedips.txt
+#dokuwiki=/var/www/dokuwiki/data/pages/gas/fail2ban
 
 dokuWikiNamespace="gas:fail2ban"
 dokuWikiUser=gas
@@ -39,9 +36,21 @@ else
 
 fi
 
+# Check if you are root user
+[[ $(id -u) -eq 0 ]] || { echo >&2 "Must be root to run this script."; exit 1; }
+
+# Check if Log file exist
+[[ -e $fail2banLogFile ]] || { echo >&2 "Log File ($fail2banLogFile) does't exist."; exit 1; }
+
+# Check if Log file exist
+[[ -e $Apache2Log ]] || { echo >&2 "Log File ($Apache2Log) does't exist."; exit 1; }
+
+dokuWikiChown=$dokuWikiData
+dokuWikiData=$dokuWikiData/pages/${dokuWikiNamespace//:/\/}
 dokuWikiReport=$dokuWikiNamespace":BlockedIPs"
-webServerUser=$(stat -c '%U' $dokuwiki)
-webServerGroup=$(stat -c '%G' $dokuwiki)
+
+webServerUser=$(stat -c '%U' $dokuWikiData)
+webServerGroup=$(stat -c '%G' $dokuWikiData)
 
 searchInLogFail2Ban () {
 	awk -F'[: ]' '$2 >= '$fromTime' && $2 <= '$tillTime' { print }' $1
@@ -53,20 +62,15 @@ searchInLogApache () {
 
 
 dokuWikiCommit () {
-	# chown $webServerUser:$webServerGroup $1
-	# commitComment=(-m \"\Update\"\)
-	# sudo -u $webServerUser cat $1
-	# sudo -u $webServerUser
 	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m '"'Update'"' $1 $2
-	#exit 0
 }
 
 reportIPs () {
 	while read in; do
 
-		if [ -f "$dokuwiki/$in.txt" ]; then
+		if [ -f "$dokuWikiData/$in.txt" ]; then
 
-			abuseComment=$(tail -n 1 $dokuwiki/$in.txt | awk -F'["]' '{print $2}')
+			abuseComment=$(tail -n 1 $dokuWikiData/$in.txt | awk -F'["]' '{print $2}')
 
 			if [ "$abuseComment" == "GET / HTTP/1.1" -o "$abuseComment" == "GET / HTTP/1.0" -o "$abuseComment" == "GET / HTTP/2.0" ]; then
 
@@ -86,24 +90,19 @@ reportIPs () {
 		--data-urlencode "ip=$in" \
 		--data-urlencode "comment=$abuseComment" \
 		--data "categories=$abuseCategories" > /dev/null
-#		--data-urlencode 'ip='"$(echo $in | awk '{print $2}')"'' \
 
 	done < $tmp
 }
 
 addedToDokuwiki () {
 	while read in; do
-		# [[ -e $dokuwiki/fail2bantmp.txt ]] && { rm $dokuwiki/fail2bantmp.txt; }
+		if [ -f "$dokuWikiData/$in.txt" ]; then
 
-		if [ -f "$dokuwiki/$in.txt" ]; then
-
-			cat $dokuwiki/$in.txt > $tmp$in
+			cat $dokuWikiData/$in.txt > $tmp$in
 
 		fi
 
 		grep "$(echo $in) - - " $Apache2Log/*.log | searchInLogApache | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $tmp$in
-		# grep "$(echo $in) - - " $Apache2Log/*.log | searchInLogApache | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $dokuwiki/fail2bantmp.txt
-		# dokuWikiCommit $tmp$in $dokuWikiNamespace:$in >> /dev/null
 
 		if [ $(wc -c <"$tmp$in") -ge 2 ]; then
 
@@ -159,29 +158,14 @@ createDokuWikiReport () {
 	rm $tmp.2
 }
 
-createStatisticFile () {
-	if [ -f "$resultsFile_day" ]; then
-
-		cat $resultsFile_day $resultsFile_all | sort | uniq -c | sort -g -r | head -n "$topAmount" > $statisticFile
-
-	else
-
-		cat $resultsFile_day | sort | uniq -c | sort -g -r | head -n "$topAmount" > $statisticFile
-
-	fi
-}
-
 # Search in fail2Ban for banned IPs
 searchInLogFail2Ban $fail2banLogFile | grep Ban | grep -v ERROR | awk 'NF>1{print $NF}' | sort > $tmp
-#awk -F'[: ]' '$2 >= '$fromTime' && $2 <= '$tillTime' { print }' $fail2banLogFile | grep Ban | grep -v ERROR | awk 'NF>1{print $NF}' | sort > $tmp
 
 cat $tmp >> $resultsFile_day
 
 addedToDokuwiki
 
 reportIPs
-
-createStatisticFile
 
 if [ "$tillTime" == "23" ]; then
 
@@ -193,8 +177,7 @@ if [ "$tillTime" == "23" ]; then
 
 fi
 
-chown -R $webServerUser:$webServerGroup /var/www/dokuwiki/data/
+chown -R $webServerUser:$webServerGroup $dokuWikiChown
 rm $tmp*
-#rm $dokuwiki/fail2bantmp.txt
 
 exit 0
