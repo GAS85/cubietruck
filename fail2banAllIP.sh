@@ -11,7 +11,6 @@ resultsFile_all=/var/log/fail2ban_all_IP_all.log
 
 dokuWikiBin=/var/www/dokuwiki/bin
 dokuWikiData=$dokuWikiBin/../data
-#dokuwiki=/var/www/dokuwiki/data/pages/gas/fail2ban
 
 dokuWikiNamespace="gas:fail2ban"
 dokuWikiUser=gas
@@ -21,8 +20,6 @@ abuseIpDbApiKey=sdsdffsdsdfsdfsdfsdf2
 abuseCategories="14,15"
 
 tmp=/tmp/fail2ban_dokuwikiIPs.tmp
-
-topAmount=20
 
 tillTime="$(date +"%H")"
 if [ "$tillTime" == "00" ]; then
@@ -35,6 +32,8 @@ else
 	fromTime="$(echo $tillTime - 3 | bc -l)"
 
 fi
+
+set -e
 
 # Check if you are root user
 [[ $(id -u) -eq 0 ]] || { echo >&2 "Must be root to run this script."; exit 1; }
@@ -60,10 +59,12 @@ searchInLogApache () {
 	awk -F'[:]' '$3 >= '$fromTime' && $3 <= '$tillTime' { print }'
 }
 
+commitComment=Update
 
 dokuWikiCommit () {
-	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m '"'Update'"' $1 $2
+	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m $commitComment $1 $2
 }
+#'"'
 
 reportIPs () {
 	while read in; do
@@ -84,21 +85,28 @@ reportIPs () {
 
 		fi
 
-		curl  -s --fail --tlsv1.0 'https://api.abuseipdb.com/api/v2/report' \
+		reportIPApi="$(curl -s https://api.abuseipdb.com/api/v2/report \
 		-H "Accept: application/json" \
 		-H "Key: $abuseIpDbApiKey" \
 		--data-urlencode "ip=$in" \
 		--data-urlencode "comment=$abuseComment" \
-		--data "categories=$abuseCategories" > /dev/null
+		--data "categories=$abuseCategories")" # > /dev/null
+
+		checkApiOnErrorVar=$reportIPApi
+		checkApiOnError
 
 	done < $tmp
 }
 
 addedToDokuwiki () {
 	while read in; do
+
+		commitComment=New
+
 		if [ -f "$dokuWikiData/$in.txt" ]; then
 
 			cat $dokuWikiData/$in.txt > $tmp$in
+			commitComment=Update
 
 		fi
 
@@ -114,12 +122,42 @@ addedToDokuwiki () {
 }
 
 geolocation () {
-	curl -s --fail 'https://api.ipgeolocation.io/ipgeo?apiKey='$geoApiKey'&ip='"$(echo $in | awk '{print $2}')"'&fields=country_flag,country_name,city,isp'
+	geolocationApi="$(curl -s 'https://api.ipgeolocation.io/ipgeo?apiKey='$geoApiKey'&ip='"$(echo $in | awk '{print $2}')"'&fields=country_flag,country_name,city,isp')"
+
+	checkApiOnErrorVar=$geolocationApi
+	checkApiOnError
+
+	echo $geolocationApi
+}
+
+checkApiOnError () {
+	# Check if Abuse API call error
+	if [ "$(echo $checkApiOnErrorVar | awk -F'["]' '{print $2}')" == "errors" ]; then
+
+		echo >&2 "API Call error. $(echo $checkApiOnErrorVar | awk -F'["]' '{print $6}')"
+		exit 1
+
+	fi
+	# Check if Geolocation call error
+	if [ "$(echo $checkApiOnErrorVar | awk -F'["]' '{print $2}')" == "message" ]; then
+
+		echo >&2 "API Call error. $(echo $checkApiOnErrorVar | awk -F'["]' '{print $4}')"
+		exit 1
+
+	fi
 }
 
 abusecheck () {
-	abusestatus_value="$(curl -s -G --fail https://api.abuseipdb.com/api/v2/check --data-urlencode "ipAddress=$(echo $in | awk '{print $2}')" -H "Key: $abuseIpDbApiKey" -H "Accept: application/json" | awk -F'["]' '{print $15}' | cut -c 2- | rev | cut -c 2- | rev)"
-	abusestatus="|<progrecss $abusestatus_value% />"
+	abusestatusCheckApi="$(curl -s -G https://api.abuseipdb.com/api/v2/check \
+	--data-urlencode "ipAddress=$(echo $in | awk '{print $2}')" \
+	-H "Key: $abuseIpDbApiKey" \
+	-H "Accept: application/json")"
+
+	checkApiOnErrorVar=$abusestatusCheckApi
+	checkApiOnError
+
+	abusestatusValue="$(echo $abusestatusCheckApi | awk -F'["]' '{print $15}' | cut -c 2- | rev | cut -c 2- | rev)"
+	abusestatus="|<progrecss $abusestatusValue% />"
 }
 
 createDokuWikiReport () {
@@ -135,10 +173,6 @@ createDokuWikiReport () {
 	# Header
 	echo "^Hits^Who-is, Abuse^IP^Confidence of Abuse^Flag^Country^City^ISProvider^" >> $tmp.2
 
-	# Pattern
-	# curl -s 'https://api.ipgeolocation.io/ipgeo?apiKey=53jhy6t8znrmyskzldx0rzc6dw8bahne&ip=79.107.248.197&fields=country_flag,country_name,city,isp'
-	# {"ip":"79.107.248.197","country_flag":"https://ipgeolocation.io/static/flags/gr_64.png","country_name":"Greece","city":"Thessaloniki","isp":"Tellas S.A"}
-
 	# Retrive IP Info
 	while read in; do abusecheck; echo $in | awk '{print $1}' | geolocation | awk -v var="$abusestatus" -F'["]' '{ print "|" $4 var "|{{" $8 "?32x32&cache}}|" $12 "|" $16 "|" $20 "|"}' >> $tmp.2; done < $tmp
 
@@ -153,6 +187,7 @@ createDokuWikiReport () {
 	echo "//It took $(expr $end - $start) seconds to generate this list. Last update on $(date +"%Y-%m-%d")//" >> $tmp.2
 
 	# Applay wiki Changes
+	commitComment=Update
 	dokuWikiCommit $tmp.2 $dokuWikiReport >> /dev/null
 
 	rm $tmp.2
