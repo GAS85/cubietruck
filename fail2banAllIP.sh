@@ -33,7 +33,8 @@ else
 
 fi
 
-set -e
+#Break on any error
+#set -e
 
 # Check if you are root user
 [[ $(id -u) -eq 0 ]] || { echo >&2 "Must be root to run this script."; exit 1; }
@@ -62,9 +63,8 @@ searchInLogApache () {
 commitComment=Update
 
 dokuWikiCommit () {
-	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m $commitComment $1 $2
+	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m $1 $2 $3
 }
-#'"'
 
 reportIPs () {
 	while read in; do
@@ -90,7 +90,7 @@ reportIPs () {
 		-H "Key: $abuseIpDbApiKey" \
 		--data-urlencode "ip=$in" \
 		--data-urlencode "comment=$abuseComment" \
-		--data "categories=$abuseCategories")" # > /dev/null
+		--data "categories=$abuseCategories")"
 
 		checkApiOnErrorVar=$reportIPApi
 		checkApiOnError
@@ -110,11 +110,11 @@ addedToDokuwiki () {
 
 		fi
 
-		grep "$(echo $in) - - " $Apache2Log/*.log | searchInLogApache | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $tmp$in
+		grep "$in - - " $Apache2Log/*.log | searchInLogApache | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $tmp$in
 
 		if [ $(wc -c <"$tmp$in") -ge 2 ]; then
 
-			dokuWikiCommit $tmp$in $dokuWikiNamespace:$in >> /dev/null
+			dokuWikiCommit $commitComment $tmp$in $dokuWikiNamespace:$in >> /dev/null
 
 		fi
 
@@ -187,8 +187,8 @@ createDokuWikiReport () {
 	echo "//It took $(expr $end - $start) seconds to generate this list. Last update on $(date +"%Y-%m-%d")//" >> $tmp.2
 
 	# Applay wiki Changes
-	commitComment=Update
-	dokuWikiCommit $tmp.2 $dokuWikiReport >> /dev/null
+	#commitComment=Update
+	dokuWikiCommit Update $tmp.2 $dokuWikiReport >> /dev/null
 
 	rm $tmp.2
 }
@@ -212,7 +212,9 @@ if [ "$tillTime" == "23" ]; then
 
 fi
 
-chown -R $webServerUser:$webServerGroup $dokuWikiChown
+#Find and chown all files NOT from this user
+cd $dokuWikiChown
+find . ! -user $webServerUser -exec chown $webServerUser:$webServerGroup {} \;
 rm $tmp*
 
 exit 0
