@@ -57,16 +57,19 @@ searchInLogFail2Ban () {
 }
 
 searchInLogApache () {
-	awk -F'[:]' '$3 >= '$fromTime' && $3 <= '$tillTime' { print }'
+	awk -F'[:]' '$2 >= '$fromTime' && $2 <= '$tillTime' { print }'
 }
 
 commitComment=Update
 
 dokuWikiCommit () {
-	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m $1 $2 $3
+	php $dokuWikiBin/dwpage.php -u $dokuWikiUser commit -m $1 $2 $3 >> /dev/null
 }
 
 reportIPs () {
+# Report only uniq
+uniq $tmp > $tmp.report
+
 	while read in; do
 
 		if [ -f "$dokuWikiData/$in.txt" ]; then
@@ -75,13 +78,14 @@ reportIPs () {
 
 			if [ "$abuseComment" == "GET / HTTP/1.1" -o "$abuseComment" == "GET / HTTP/1.0" -o "$abuseComment" == "GET / HTTP/2.0" ]; then
 
-				abuseComment="Port scan"
+				abuseComment="Port scan and direct access per IP instead of hostname"
 
 			fi
 
 		else
 
-			abuseComment=""
+			# abuseComment=""
+			abuseComment=$(grep "$in - - " $Apache2Log/*.log $Apache2Log/*.log.1 | searchInLogApache | awk -F'["]' '{print $2}' | tail -n 1)
 
 		fi
 
@@ -95,7 +99,7 @@ reportIPs () {
 		checkApiOnErrorVar=$reportIPApi
 		checkApiOnError
 
-	done < $tmp
+	done < $tmp.report
 }
 
 addedToDokuwiki () {
@@ -135,14 +139,14 @@ checkApiOnError () {
 	if [ "$(echo $checkApiOnErrorVar | awk -F'["]' '{print $2}')" == "errors" ]; then
 
 		echo >&2 "API Call error. $(echo $checkApiOnErrorVar | awk -F'["]' '{print $6}')"
-		exit 1
+		# exit 1
 
 	fi
 	# Check if Geolocation call error
 	if [ "$(echo $checkApiOnErrorVar | awk -F'["]' '{print $2}')" == "message" ]; then
 
 		echo >&2 "API Call error. $(echo $checkApiOnErrorVar | awk -F'["]' '{print $4}')"
-		exit 1
+		# exit 1
 
 	fi
 }
