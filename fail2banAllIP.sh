@@ -33,7 +33,7 @@ else
 
 fi
 
-#Break on any error
+#Break on any error, also API Call error like 4xx
 #set -e
 
 # Check if you are root user
@@ -109,12 +109,12 @@ addedToDokuwiki () {
 
 		if [ -f "$dokuWikiData/$in.txt" ]; then
 
-			cat $dokuWikiData/$in.txt > $tmp$in
+			uniq $dokuWikiData/$in.txt > $tmp$in
 			commitComment=Update
 
 		fi
 
-		grep "$in - - " $Apache2Log/*.log | searchInLogApache | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $tmp$in
+		grep "$in - - " $Apache2Log/*.log | searchInLogApache | uniq | awk -F'[:]' '{ $1 = ""; print "    " $0 }' >> $tmp$in
 
 		if [ $(wc -c <"$tmp$in") -ge 2 ]; then
 
@@ -165,7 +165,8 @@ abusecheck () {
 }
 
 createDokuWikiReport () {
-	start=`date +%s`
+	SECONDS=0
+#	start=`date +%s`
 
 	cat $resultsFile_all | uniq -c | sort -g -r > $tmp
 
@@ -186,9 +187,10 @@ createDokuWikiReport () {
 	# Added Hits Number
 	while read in; do sed -i -e 's/|'"$(echo $in  | awk '{print $2}')"'/'"$(echo $in  | awk '{print "|" $1 "|[[https:\/\/whois.domaintools.com\/" $2 "|W]] [[https:\/\/www.abuseipdb.com\/check\/" $2 "|A]]|[[gas:fail2ban:" $2 "|" $2 "]]"}')"'/g' $tmp.2; done < $tmp
 
-	end=`date +%s`
+	duration=$SECONDS
+#	end=`date +%s`
 
-	echo "//It took $(expr $end - $start) seconds to generate this list. Last update on $(date +"%Y-%m-%d")//" >> $tmp.2
+	echo "//It took $(($duration / 60)) minutes and $(($duration % 60)) seconds to generate this list. Last update on $(date +"%Y-%m-%d")//" >> $tmp.2
 
 	# Applay wiki Changes
 	#commitComment=Update
@@ -198,7 +200,7 @@ createDokuWikiReport () {
 }
 
 # Search in fail2Ban for banned IPs
-searchInLogFail2Ban $fail2banLogFile | grep Ban | grep -v ERROR | awk 'NF>1{print $NF}' | sort > $tmp
+searchInLogFail2Ban $fail2banLogFile | grep Ban | grep -v 'ERROR\|Unban' | awk 'NF>1{print $NF}' | sort > $tmp
 
 cat $tmp >> $resultsFile_day
 
