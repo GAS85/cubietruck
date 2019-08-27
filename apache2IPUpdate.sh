@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Use --mute key to suppress output
+
 apache2Conf="/etc/apache2/sites-enabled/900-restrictDirectIP.conf"
 
 # Functions
@@ -37,20 +39,29 @@ while [ -n "${GET_IP_URLS[$GIP_INDEX]}" ] && ! valid_ip $NEWIP; do
 done
 
 if ! valid_ip $NEWIP; then
-    echo Could not find current IP
+    echo "Could not find current IP"
     exit 1
 fi
-
-echo "IP: $NEWIP"
 
 #Update Apache2 Config
 original=$(grep ServerName $apache2Conf | awk '{print $2}' | head -n 1)
 
-if [ "$original" == "$NEIP" ]; then
-        exit 0
+if [ "$1" != "--mute" ]; then
+	echo "External IP: $NEWIP"
+	echo "Configured IP: $original"
+fi
+
+if [ "$original" == "$NEWIP" ]; then
+	if [ "$1" != "--mute" ]; then
+		echo "Nothing to do, exiting"
+	fi
+	exit 0
 else
-        sed -i "s/$original/$NEWIP/g" $apache2Conf
-        service apache2 reload
+	if [ "$1" != "--mute" ]; then
+		echo "Replacing IP Address in config and reloading the service"
+	fi
+	sed -i "s/$original/$NEWIP/g" $apache2Conf
+	service apache2 reload || systemctl reload apache2
 fi
 
 exit 0
