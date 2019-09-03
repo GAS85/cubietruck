@@ -24,13 +24,13 @@ BrightnessOff=0
 	#for white LED
 	triggerW=cpu1
 	#for green LED
-	triggerG=
+	triggerG=mmc0
 
 #Usually not need to be edited. Path to different LEDs.
-blue=$LEDs/blue:ph21:led1
-orange=$LEDs/orange:ph20:led2
-white=$LEDs/white:ph11:led3
-green=$LEDs/green:ph07:led4
+blue=$LEDs/cubietruck:blue:usr
+orange=$LEDs/cubietruck:orange:usr
+white=$LEDs/cubietruck:white:usr
+green=$LEDs/cubietruck:green:usr
 
 ### Configuration end ###
 
@@ -59,7 +59,7 @@ fi
 
 #set trigger
 #possible triggers: 
-#none battery-charging-or-full battery-charging battery-full battery-charging-blink-full-solid ac-online usb-online mmc0 mmc1 timer disk-activity heartbeat backlight cpu0 cpu1 default-on rfkill0 rfkill1 rfkill2 rfkill4 
+#none rc-feedback rfkill-any rfkill-none kbd-scrolllock kbd-numlock kbd-capslock kbd-kanalock kbd-shiftlock kbd-altgrlock kbd-ctrllock kbd-altlock kbd-shiftllock kbd-shiftrlock kbd-ctrlllock kbd-ctrlrlock usbport disk-activity disk-read disk-write ide-disk mtd nand-disk heartbeat cpu cpu0 cpu1 [mmc0] default-on panic netdev mmc1 stmmac-0:00:link stmmac-0:00:1Gbps stmmac-0:00:100Mbps stmmac-0:00:10Mbps
 #echo TRIGGER > $blue/trigger
 
 if [[ $triggerB ]]; then
