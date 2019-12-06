@@ -65,10 +65,20 @@ if [ "$dry" != "true" ]; then
 
 else
 
+	# Collect Lets Encrypt hashes
+	hash2=$(curl -s https://letsencrypt.org/certs/lets-encrypt-x4-cross-signed.pem | openssl x509 -pubkey | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)
+	hash3=$(curl -s https://letsencrypt.org/certs/lets-encrypt-x3-cross-signed.pem | openssl x509 -pubkey | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)
+	hash4=$(curl -s https://letsencrypt.org/certs/isrgrootx1.pem | openssl x509 -pubkey | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)
+
 	echo "Current Hash in Config"
-    echo "	"$hash1_in_config
-    echo "Hash from the certificate"
-    echo "	"$hash1
+	echo "	"$hash1_in_config
+	echo "Hash from the certificate"
+	echo "	"$hash1
+	echo
+	echo "You porbably have to added following root Certificates of Let's Encrypt hashes in your config file if they are not presented there"
+	echo "X4	"$hash2    
+	echo "X3	"$hash3
+	echo "RootX1	"$hash4
 
 fi
 
