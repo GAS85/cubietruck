@@ -10,29 +10,53 @@ letsEncryptDirectory="/etc/letsencrypt/live/yourDomain"
 apache2VirtualHostConfig="/etc/apache2/sites-enabled/YourVirtualHostConf.conf""
 
 ### End of configuration
+
 show_help () {
 echo "This script will fetch hash from the Letsencrypt Certificate and and put it into your Apache2 configuration.
 Read more about on: https://gist.github.com/GAS85/a668b941f84c621a15ff581ae968e4cb
 Syntax is publicKeyPinning.sh -h?d --dry-run
 	-h, or ?	for this help
-	-d	will only generate output without writting to the config
+	-d	will only generate output without writting to the Apache2 config
 	--dry-run	is the same as -d
+	-c <path> set custom config path
 By Georgiy Sitnikov."
 }
 
 set -e
 
-for i in "$@"; do
-	case $i in
+while test $# -gt 0; do
+	case "$1" in
 		-h|\?)
 			show_help
 			exit 0
 		;;
 		-d|--dry-run)
-		dry=true
+			dry=true
     	;;
+		-c)
+			configFile="$2"
+		;;
 	esac
 done
+
+# Check if you set custom config File location
+
+if [ ! -f "$configFile" ]; then
+
+	echo "$(date) - ERROR - Config file was not found under $configFile. Will continuer with default settings."
+
+else
+
+	if [ ! -r "$configFile" ]; then
+
+		echo "$(date) - ERROR - Config file could not be read."
+		exit 1
+
+	fi
+
+fi
+
+source "$configFile"
 
 # Check if you are root user
 [[ $(id -u) -eq 0 ]] || { echo >&2 "You probably must be root to run this script."; exit 1; }
